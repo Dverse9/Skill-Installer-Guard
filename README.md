@@ -34,5 +34,10 @@ GitHub Action workflow:
 
 This runs Skill Guard on pull requests and blocks merge on `BLOCK` (and `REVIEW` in strict mode).
 
+## Governance & Security docs
+- Contributing guide: `CONTRIBUTING.md`
+- Security policy: `SECURITY.md`
+- Safe candidate fixture: `examples/candidates/safe-docs-skill/`
+
 ## License
 MIT

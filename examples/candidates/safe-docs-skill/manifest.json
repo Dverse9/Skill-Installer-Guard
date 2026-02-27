@@ -1,0 +1,12 @@
+{
+  "name": "safe-docs-skill",
+  "version": "0.1.0",
+  "source": "https://github.com/Dverse9/Skill-Installer-Guard",
+  "entry": "SKILL.md",
+  "skill_type": "scraper",
+  "constraints": {
+    "allowed_hosts": ["docs.openclaw.ai", "github.com"],
+    "allowed_env_prefixes": ["OPENCLAW_"],
+    "allowed_commands": []
+  }
+}
