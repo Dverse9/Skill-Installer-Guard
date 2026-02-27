@@ -1,0 +1,157 @@
+name: Skill Guard (Pre-Merge)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
+    paths:
+      - "skills/**"
+      - "governance/**"
+      - ".github/workflows/skill-guard.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  skill-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Prepare run folders
+        run: |
+          set -euo pipefail
+          RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-${GITHUB_SHA:0:7}"
+          echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+          mkdir -p scan_inputs/$RUN_ID scan_outputs/$RUN_ID
+
+      - name: Detect candidate dirs
+        id: candidates
+        run: |
+          set -euo pipefail
+          BASE_REF="${{ github.base_ref }}"
+          git fetch origin "$BASE_REF" --depth=1
+          git diff --name-only "origin/$BASE_REF...HEAD" > scan_outputs/$RUN_ID/changed_files.txt || true
+
+          > scan_outputs/$RUN_ID/candidates.txt
+          awk -F/ '/^skills\//{print $1"/"$2"/"$3}' scan_outputs/$RUN_ID/changed_files.txt | sort -u | while read -r c; do
+            [ -d "$c" ] || continue
+            if ls "$c"/manifest*.json >/dev/null 2>&1; then
+              echo "$c" >> scan_outputs/$RUN_ID/candidates.txt
+            fi
+          done
+
+          COUNT=$(wc -l < scan_outputs/$RUN_ID/candidates.txt | tr -d ' ')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Run Skill Guard v3
+        if: steps.candidates.outputs.count != '0'
+        run: |
+          set -euo pipefail
+
+          POLICY_HASH=$(sha256sum skills/skill-installer-guard/profiles_v3.json | awk '{print $1}')
+          SCANNER_HASH=$(sha256sum skills/skill-installer-guard/guard_check_v3.py | awk '{print $1}')
+
+          {
+            echo "policy_hash=$POLICY_HASH"
+            echo "scanner_hash=$SCANNER_HASH"
+            echo "commit_sha=${GITHUB_SHA}"
+          } > scan_outputs/$RUN_ID/meta.txt
+
+          FAIL=0
+          REVIEW=0
+
+          while IFS= read -r CAND; do
+            [ -z "$CAND" ] && continue
+            NAME=$(echo "$CAND" | tr '/' '_')
+            INPUT_ROOT="scan_inputs/$RUN_ID/$NAME"
+            OUTPUT_ROOT="scan_outputs/$RUN_ID/$NAME"
+            mkdir -p "$INPUT_ROOT" "$OUTPUT_ROOT"
+
+            rsync -a --delete "$CAND"/ "$INPUT_ROOT"/
+            (cd "$INPUT_ROOT" && find . -type f -print0 | sort -z | xargs -0 sha256sum) > "$OUTPUT_ROOT/input_hashes.txt"
+
+            MANIFEST=$(ls "$INPUT_ROOT"/manifest*.json | head -n 1)
+            REPORT="$OUTPUT_ROOT/report_v3.json"
+
+            case "$REPORT" in
+              "$INPUT_ROOT"/*)
+                echo "FATAL: output path overlaps input root for $CAND" | tee "$OUTPUT_ROOT/fatal.txt"
+                FAIL=1
+                continue
+                ;;
+            esac
+
+            python3 skills/skill-installer-guard/guard_check_v3.py \
+              --manifest "$MANIFEST" \
+              --candidate "$INPUT_ROOT" \
+              --out "$REPORT"
+
+            STATUS=$(jq -r '.status' "$REPORT")
+            if [ "$STATUS" = "BLOCK" ]; then
+              FAIL=1
+            elif [ "$STATUS" = "REVIEW" ]; then
+              REVIEW=1
+            fi
+          done < scan_outputs/$RUN_ID/candidates.txt
+
+          {
+            echo "fail=$FAIL"
+            echo "review=$REVIEW"
+          } > scan_outputs/$RUN_ID/result_flags.txt
+
+          if [ "$FAIL" -eq 1 ]; then
+            echo "Skill Guard result: BLOCK"
+            exit 1
+          fi
+
+          # Strict mode for protected branches
+          if [ "$REVIEW" -eq 1 ]; then
+            echo "Skill Guard result: REVIEW (strict mode => fail)"
+            exit 1
+          fi
+
+      - name: No candidate note
+        if: steps.candidates.outputs.count == '0'
+        run: |
+          echo "No candidate skills with manifests changed."
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: skill-guard-${{ env.RUN_ID }}
+          path: scan_outputs/${{ env.RUN_ID }}
+          retention-days: 30
+
+      - name: PR summary comment
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const runId = process.env.RUN_ID;
+            const resultPath = `scan_outputs/${runId}/result_flags.txt`;
+            let body = `### Skill Guard\nRun ID: ${runId}\n`;
+            if (fs.existsSync(resultPath)) {
+              body += '\n```\n' + fs.readFileSync(resultPath, 'utf8') + '\n```\n';
+            } else {
+              body += '\nNo candidates processed.\n';
+            }
+            body += '\nArtifacts attached to this workflow run.';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });

@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0",
+  "rule_id_contract": {
+    "stability": "Rule identifiers are stable across MINOR and PATCH releases.",
+    "breaking_changes": "Rule ID removal/rename requires MAJOR version increment.",
+    "deprecation_policy": "Deprecated rules remain for at least one MINOR release with deprecated=true and replacement_rule_id when available."
+  },
+  "rules": [
+    {"rule_id": "shell_pipe_exec", "category": "exec_chain", "severity": "critical", "deprecated": false},
+    {"rule_id": "runtime_download_exec", "category": "exec_chain", "severity": "high", "deprecated": false},
+    {"rule_id": "js_child_process", "category": "command_exec", "severity": "high", "deprecated": false},
+    {"rule_id": "python_subprocess", "category": "command_exec", "severity": "medium", "deprecated": false},
+    {"rule_id": "js_dynamic_require_import", "category": "dynamic_load", "severity": "low", "deprecated": false},
+    {"rule_id": "network_refs", "category": "network", "severity": "info", "deprecated": false},
+    {"rule_id": "token_refs", "category": "credentials", "severity": "medium", "deprecated": false},
+    {"rule_id": "install_hooks", "category": "supply_chain", "severity": "high", "deprecated": false}
+  ]
+}

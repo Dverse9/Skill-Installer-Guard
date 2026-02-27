@@ -1,0 +1,5 @@
+{
+  "approved_rules": ["network_exfil"],
+  "approved_files": ["docs/example.md"],
+  "justification": "Documentation/network references are expected for this candidate"
+}

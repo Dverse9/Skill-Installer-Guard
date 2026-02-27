@@ -1,0 +1,41 @@
+{
+  "default": {
+    "allowed_categories": ["network", "dynamic_load"],
+    "constrained_categories": ["command_exec", "credentials", "supply_chain"],
+    "blocked_categories": ["exec_chain", "obfuscation"],
+    "required_constraints": {
+      "network": ["allowed_hosts"],
+      "credentials": ["allowed_env_prefixes"],
+      "command_exec": ["allowed_commands"]
+    }
+  },
+  "telegram-bot": {
+    "allowed_categories": ["network", "credentials", "dynamic_load"],
+    "constrained_categories": ["command_exec", "supply_chain"],
+    "blocked_categories": ["exec_chain", "obfuscation"],
+    "required_constraints": {
+      "network": ["allowed_hosts"],
+      "credentials": ["allowed_env_prefixes"],
+      "command_exec": ["allowed_commands"]
+    }
+  },
+  "scraper": {
+    "allowed_categories": ["network", "dynamic_load"],
+    "constrained_categories": ["credentials", "command_exec"],
+    "blocked_categories": ["exec_chain", "obfuscation"],
+    "required_constraints": {
+      "network": ["allowed_hosts"],
+      "credentials": ["allowed_env_prefixes"]
+    }
+  },
+  "ci-helper": {
+    "allowed_categories": ["command_exec", "network", "dynamic_load", "supply_chain"],
+    "constrained_categories": ["credentials"],
+    "blocked_categories": ["exec_chain", "obfuscation"],
+    "required_constraints": {
+      "command_exec": ["allowed_commands"],
+      "network": ["allowed_hosts"],
+      "credentials": ["allowed_env_prefixes"]
+    }
+  }
+}
