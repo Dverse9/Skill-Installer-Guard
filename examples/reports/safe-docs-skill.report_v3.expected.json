@@ -1,0 +1,6 @@
+{
+  "status": "PASS",
+  "decision": "PASS",
+  "next_step": "quarantine",
+  "notes": "Reference expected outcome for docs-oriented safe candidate. Exact counts may vary with rule tuning."
+}
